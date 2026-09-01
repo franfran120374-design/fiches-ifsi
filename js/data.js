@@ -23,6 +23,35 @@
 
   FICHES.registerConseils = function (c) { FICHES.conseils = c; };
 
+  /* Modules transversaux (gestes techniques, plaies, biologie…) :
+     hors référentiel, stockés sous le pseudo-référentiel 'transversal'
+     pour réutiliser progression, Leitner et moteur de QCM. */
+  FICHES.modules = {};
+  FICHES.ordreModules = [];
+  FICHES.REF_TRANSVERSAL = 'transversal';
+
+  FICHES.registerModule = function (m) {
+    FICHES.modules[m.id] = m;
+    if (FICHES.ordreModules.indexOf(m.id) === -1) FICHES.ordreModules.push(m.id);
+    FICHES.contenus[FICHES.REF_TRANSVERSAL + '::' + m.id] = {
+      ref: FICHES.REF_TRANSVERSAL, ue: m.id,
+      objectifs: m.objectifs || [], fiches: m.fiches || [], qcm: m.qcm || []
+    };
+  };
+
+  FICHES.module = function (id) { return FICHES.modules[id] || null; };
+
+  FICHES.tousModules = function () {
+    return FICHES.ordreModules.map(function (id) { return FICHES.modules[id]; });
+  };
+
+  FICHES.progressionModules = function () {
+    var ids = FICHES.ordreModules, somme = 0, i;
+    if (!ids.length) return { pct: 0, total: 0 };
+    for (i = 0; i < ids.length; i++) somme += FICHES.progressionUE(FICHES.REF_TRANSVERSAL, ids[i]).pct;
+    return { pct: Math.round(somme / ids.length), total: ids.length };
+  };
+
   /* ---------- accès ---------- */
   FICHES.ref = function (id) { return FICHES.referentiels[id] || null; };
 
@@ -50,7 +79,49 @@
     return null;
   };
 
-  FICHES.contenu = function (refId, ueId) { return FICHES.contenus[refId + '::' + ueId] || null; };
+  /* Résolution du contenu, avec reprise éventuelle de fiches d'un autre
+     référentiel (clé "reprend"). Les identifiants repris sont préfixés pour
+     éviter toute collision ; la progression reste propre à chaque référentiel. */
+  FICHES._cacheContenu = {};
+
+  FICHES.contenu = function (refId, ueId) {
+    var cle = refId + '::' + ueId;
+    var base = FICHES.contenus[cle];
+    if (!base) return null;
+    if (!base.reprend || !base.reprend.length) return base;
+    if (FICHES._cacheContenu[cle]) return FICHES._cacheContenu[cle];
+
+    var fiches = [], qcm = [], i, j;
+    for (i = 0; i < base.reprend.length; i++) {
+      var src = FICHES.contenus[base.reprend[i]];
+      if (!src) continue;
+      var pref = base.reprend[i].split('::')[1].replace(/[^A-Za-z0-9]/g, '') + '_';
+      var sf = src.fiches || [];
+      for (j = 0; j < sf.length; j++) {
+        var f = {}, k;
+        for (k in sf[j]) if (Object.prototype.hasOwnProperty.call(sf[j], k)) f[k] = sf[j][k];
+        f.id = pref + sf[j].id;
+        f.origine = base.reprend[i];
+        fiches.push(f);
+      }
+      var sq = src.qcm || [];
+      for (j = 0; j < sq.length; j++) {
+        var q = {}, k2;
+        for (k2 in sq[j]) if (Object.prototype.hasOwnProperty.call(sq[j], k2)) q[k2] = sq[j][k2];
+        q.id = pref + sq[j].id;
+        qcm.push(q);
+      }
+    }
+    var out = {
+      ref: refId, ue: ueId,
+      objectifs: base.objectifs || [],
+      fiches: (base.fiches || []).concat(fiches),
+      qcm: (base.qcm || []).concat(qcm),
+      note: base.note || ''
+    };
+    FICHES._cacheContenu[cle] = out;
+    return out;
+  };
 
   FICHES.aContenu = function (refId, ueId) {
     var c = FICHES.contenu(refId, ueId);
@@ -146,6 +217,20 @@
         }
       }
       if (out.length > 60) break;
+    }
+    var mods = FICHES.tousModules();
+    for (i = 0; i < mods.length; i++) {
+      var m = mods[i];
+      if (FICHES.normaliser(m.titre + ' ' + (m.motsCles || []).join(' ')).indexOf(n) !== -1) {
+        out.push({ type: 'Module', titre: m.titre, sous: 'Pratique soignante', href: '#/module/' + m.id });
+      }
+      var mf = m.fiches || [];
+      for (j = 0; j < mf.length; j++) {
+        var mh = mf[j].titre + ' ' + (mf[j].motsCles || []).join(' ');
+        if (FICHES.normaliser(mh).indexOf(n) !== -1) {
+          out.push({ type: 'Fiche', titre: mf[j].titre, sous: m.titre, href: '#/module/' + m.id + '/fiche/' + mf[j].id });
+        }
+      }
     }
     return out.slice(0, 40);
   };

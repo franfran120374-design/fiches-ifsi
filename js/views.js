@@ -69,6 +69,7 @@
       '</div>' +
       '<div class="btn-row" style="margin:0 0 26px">' +
       '<a class="btn" href="#/revision">Lancer une session de révision</a>' +
+      '<a class="btn btn-ghost" href="#/modules">Gestes et pratique soignante</a>' +
       '<a class="btn btn-ghost" href="#/calculs">Entraînement calculs de doses</a>' +
       '<a class="btn btn-ghost" href="#/programme">Voir tout le programme</a>' +
       '<a class="btn btn-ghost" href="#/conseils">Conseils de révision</a>' +
@@ -402,6 +403,103 @@
       '<button class="btn-ghost" id="set-reset" style="color:var(--rose);border-color:var(--rose)">Tout effacer</button></div>' +
       (Store.disponible ? '' : '<div class="blk blk-callout blk-piege" style="margin-top:16px"><div class="blk-title">Stockage indisponible</div><p>Ce navigateur bloque le stockage local : ta progression sera perdue en fermant l’onglet.</p></div>') +
       '</div>';
+  };
+
+  /* ---------------- Modules transversaux ---------------- */
+  V.modules = function () {
+    var mods = FICHES.tousModules();
+    var TR = FICHES.REF_TRANSVERSAL;
+    if (!mods.length) {
+      return '<div class="wrap"><div class="page-head"><h1>Pratique soignante</h1></div>' +
+        '<div class="empty"><div class="big">◔</div><p>Aucun module disponible.</p></div></div>';
+    }
+    var cards = mods.map(function (m) {
+      var pr = FICHES.progressionUE(TR, m.id);
+      return '<a class="ue-card" href="#/module/' + esc(m.id) + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+        '<span class="ue-code">' + esc(m.etiquette || 'PRATIQUE') + '</span>' +
+        (pr.pct >= 100 ? '<span class="badge ok">maîtrisé</span>' : (pr.pct > 0 ? '<span class="badge wip">en cours</span>' : '<span class="badge">disponible</span>')) +
+        '</div><div class="ue-title">' + esc(m.titre) + '</div>' +
+        '<div class="ue-meta"><span>' + (m.fiches || []).length + ' fiches</span><span>' + (m.qcm || []).length + ' questions</span></div>' +
+        barre(pr.pct) + '</a>';
+    }).join('');
+    var g = FICHES.progressionModules();
+    return '<div class="wrap"><div class="page-head"><div class="eyebrow">Transversal</div>' +
+      '<h1>Pratique soignante</h1>' +
+      '<p class="lead">Les gestes, les protocoles et les repères qui servent dans tous les semestres et tous les stages, indépendamment du référentiel.</p></div>' +
+      '<div class="kpis"><div class="kpi"><div class="kpi-v">' + g.pct + ' %</div><div class="kpi-l">Progression</div></div>' +
+      '<div class="kpi"><div class="kpi-v">' + g.total + '</div><div class="kpi-l">Modules</div></div></div>' +
+      '<div class="grid g2">' + cards + '</div></div>';
+  };
+
+  V.module = function (id) {
+    var m = FICHES.module(id);
+    if (!m) return V.introuvable();
+    var TR = FICHES.REF_TRANSVERSAL;
+    var pr = FICHES.progressionUE(TR, id);
+
+    var listeFiches = (m.fiches || []).map(function (f, i) {
+      var lu = Store.ficheLue(TR, id, f.id);
+      return '<a class="fl' + (lu ? ' done' : '') + '" href="#/module/' + esc(id) + '/fiche/' + esc(f.id) + '">' +
+        '<span class="n">' + (lu ? '✓' : (i + 1)) + '</span>' +
+        '<span class="t">' + esc(f.titre) + '</span>' +
+        '<span class="d">' + (f.duree ? f.duree + ' min' : '') + '</span></a>';
+    }).join('');
+
+    var obj = (m.objectifs && m.objectifs.length)
+      ? '<h2>Ce que couvre ce module</h2><ul>' + m.objectifs.map(function (o) { return '<li>' + inline(o) + '</li>'; }).join('') + '</ul>' : '';
+
+    var quizBloc = '';
+    if ((m.qcm || []).length) {
+      quizBloc = '<h2>Questionnaire corrigé</h2><div class="card">' +
+        '<p style="margin-top:0">' + m.qcm.length + ' questions. ' +
+        (pr.meilleur ? 'Meilleur score : <strong>' + pr.meilleur + ' %</strong>.' : 'Pas encore d’essai.') + '</p>' +
+        '<div class="btn-row"><a class="btn" href="#/quiz-module/' + esc(id) + '">Lancer le QCM</a>' +
+        '<a class="btn btn-ghost" href="#/quiz-module/' + esc(id) + '?n=5">Version courte</a></div></div>';
+    }
+
+    return '<div class="wrap">' +
+      '<div class="crumbs"><a href="#/">Accueil</a> · <a href="#/modules">Pratique soignante</a></div>' +
+      '<div class="page-head"><div class="eyebrow">' + esc(m.etiquette || 'Pratique') + '</div>' +
+      '<h1>' + esc(m.titre) + '</h1>' +
+      (m.accroche ? '<p class="lead">' + inline(m.accroche) + '</p>' : '') + '</div>' +
+      '<div class="kpis">' +
+      '<div class="kpi"><div class="kpi-v">' + (m.fiches || []).length + '</div><div class="kpi-l">Fiches</div></div>' +
+      '<div class="kpi"><div class="kpi-v">' + (m.qcm || []).length + '</div><div class="kpi-l">Questions</div></div>' +
+      '<div class="kpi"><div class="kpi-v">' + pr.pct + ' %</div><div class="kpi-l">Ta progression</div></div></div>' +
+      obj +
+      ((m.fiches || []).length ? '<h2>Fiches</h2><div class="list-fiches">' + listeFiches + '</div>' : '') +
+      quizBloc +
+      (m.ues ? '<h3>UE concernées</h3><p class="mini">' + esc(m.ues.join(' · ')) + '</p>' : '') +
+      '</div>';
+  };
+
+  V.moduleFiche = function (id, ficheId) {
+    var m = FICHES.module(id);
+    if (!m) return V.introuvable();
+    var TR = FICHES.REF_TRANSVERSAL;
+    var idx = -1, i;
+    for (i = 0; i < m.fiches.length; i++) if (m.fiches[i].id === ficheId) idx = i;
+    if (idx === -1) return V.introuvable();
+    var f = m.fiches[idx];
+    var lu = Store.ficheLue(TR, id, f.id);
+    var prev = idx > 0 ? m.fiches[idx - 1] : null;
+    var next = idx < m.fiches.length - 1 ? m.fiches[idx + 1] : null;
+
+    return '<div class="wrap">' +
+      '<div class="crumbs"><a href="#/modules">Pratique soignante</a> · <a href="#/module/' + esc(id) + '">' + esc(m.titre) + '</a></div>' +
+      '<div class="page-head"><div class="eyebrow">Fiche ' + (idx + 1) + '/' + m.fiches.length + (f.duree ? ' · ' + f.duree + ' min' : '') + '</div>' +
+      '<h1>' + esc(f.titre) + '</h1>' +
+      (f.accroche ? '<p class="lead">' + inline(f.accroche) + '</p>' : '') + '</div>' +
+      '<div class="fiche-body">' + R.blocs(f.blocs) + '</div>' +
+      '<div class="btn-row">' +
+      '<button class="btn' + (lu ? ' btn-sec' : '') + '" id="btn-lu" data-lu="' + (lu ? '1' : '0') + '">' +
+      (lu ? '✓ Fiche marquée comme lue' : 'Marquer comme lue') + '</button>' +
+      ((m.qcm || []).length ? '<a class="btn btn-ghost" href="#/quiz-module/' + esc(id) + '">Me tester</a>' : '') + '</div>' +
+      '<div class="fiche-nav">' +
+      (prev ? '<a class="btn-ghost" href="#/module/' + esc(id) + '/fiche/' + esc(prev.id) + '">← ' + esc(prev.titre) + '</a>' : '<span></span>') +
+      (next ? '<a class="btn-ghost" href="#/module/' + esc(id) + '/fiche/' + esc(next.id) + '">' + esc(next.titre) + ' →</a>' : '<a class="btn-ghost" href="#/module/' + esc(id) + '">Retour au module</a>') +
+      '</div></div>';
   };
 
   /* ---------------- Entraînement calculs de doses ---------------- */

@@ -44,12 +44,18 @@ navigateur ; la progression est stockée en local et exportable en JSON.
        ├── ref-2009.js   (référentiel 2009 : 6 semestres, 58 UE)
        ├── ref-2026.js   (référentiel 2026 : domaines A à E)
        ├── conseils.js   (méthodologie de révision)
-       └── ue\
-           ├── manifest.js
-           ├── 2009-2.1.S1.js
-           ├── 2009-2.2.S1.js
-           ├── 2009-2.10.S1.js
-           └── 2009-2.11.S1.js
+       ├── ue\
+       │   ├── manifest.js      (liste des fichiers à charger)
+       │   ├── 2009-1.1.S1.js   2009-1.3.S1.js
+       │   ├── 2009-2.1.S1.js   2009-2.2.S1.js   2009-2.4.S1.js
+       │   ├── 2009-2.10.S1.js  2009-2.11.S1.js
+       │   ├── 2009-3.1.S1.js   2009-4.1.S1.js
+       │   ├── 2009-6.1.S1.js   2009-6.2.S1.js
+       │   └── 2026-S1.js       (semestre 1 du nouveau référentiel)
+       └── modules\
+           ├── gestes-techniques.js
+           ├── plaies-pansements.js
+           └── bilans-biologiques.js
    ```
 
 3. **Commit** — dans GitHub Desktop, les fichiers apparaissent dans
@@ -72,6 +78,42 @@ navigateur ; la progression est stockée en local et exportable en JSON.
    ligne.
 
 ---
+
+## Modules transversaux
+
+Trois modules hors référentiel, accessibles par « Gestes et pratique », valables
+quel que soit le référentiel actif :
+
+- **Gestes techniques infirmiers** — injections, voie veineuse périphérique,
+  prélèvements et hémocultures, sondage urinaire, oxygénothérapie, glycémie
+  capillaire, ECG, sonde nasogastrique.
+- **Plaies, cicatrisation et pansements** — phases de cicatrisation, choix du
+  pansement par classe, escarres et stades, plaies aiguës et chroniques.
+- **Bilans biologiques** — NFS, ionogramme, hémostase, inflammation, bilan
+  hépatique, gaz du sang, erreurs pré-analytiques.
+
+Ils se déclarent avec `FICHES.registerModule({ id, titre, etiquette, fiches, qcm })`
+dans `data/modules/`, et se chargent via le même `data/ue/manifest.js`.
+
+## Reprise de contenu entre référentiels
+
+Une UE du référentiel 2026 peut réutiliser les fiches et les QCM d'une ou
+plusieurs UE 2009, sans duplication de fichier :
+
+```js
+FICHES.registerUE({
+  ref: '2026', ue: 'B1.S1',
+  objectifs: ['…'],
+  reprend: ['2009::2.1.S1', '2009::2.2.S1']
+});
+```
+
+Les identifiants repris sont préfixés automatiquement, et la progression reste
+**suivie séparément pour chaque référentiel**. Une UE peut combiner ses propres
+`fiches`/`qcm` et une clé `reprend`.
+
+Contrainte : dans `manifest.js`, un fichier qui reprend du contenu doit être
+listé **après** ses sources.
 
 ## Ajouter le contenu d'une UE
 
@@ -131,6 +173,20 @@ Un QCM accepte plusieurs bonnes réponses : `bonnes: [0, 2]`.
   d'appareil.
 
 ---
+
+## État du contenu
+
+**Référentiel 2009 — semestre 1 complet** (sauf UE 5.1, mise de côté) :
+1.1, 1.3, 2.1, 2.2, 2.4, 2.10, 2.11, 3.1, 4.1, 6.1, 6.2 — soit 11 UE,
+38 fiches et 146 questions corrigées.
+
+**Référentiel 2026 — semestre 1** : A1 (contenu propre), A2, A3, B1, B2, B3,
+D1, E1, E2 par reprise du contenu 2009. C1 (santé publique) reste à écrire.
+
+**Modules transversaux** : 14 fiches et 51 questions.
+
+Reste à faire : semestres 2 à 6 du référentiel 2009, puis les semestres 2 à 6
+du référentiel 2026 par reprise et complément.
 
 ## Sources et réserves
 

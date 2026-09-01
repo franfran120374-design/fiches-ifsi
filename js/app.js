@@ -14,7 +14,7 @@
 
   /* ---------------- chargement des fichiers de contenu ---------------- */
   function chargerUE(liste, done) {
-    var i = 0, base = 'data/ue/';
+    var i = 0, base = 'data/';
     function suivant() {
       if (i >= liste.length) { done(); return; }
       var src = base + liste[i++];
@@ -113,7 +113,7 @@
     var p = h.parts;
     var r0 = p[0] || '';
 
-    if (r0 !== 'quiz' && r0 !== 'revision') app.session = null;
+    if (r0 !== 'quiz' && r0 !== 'quiz-module' && r0 !== 'revision') app.session = null;
     if (r0 !== 'calculs') app.calc = null;
 
     if (r0 === '') rendre(V.home(app.ref));
@@ -127,6 +127,13 @@
     else if (r0 === 'quiz' && p[1]) demarrerQuizUE(p[1], parseInt(param(h.query, 'n'), 10) || 0);
     else if (r0 === 'revision') { rendre(V.revision(app.ref)); brancherRevision(); }
     else if (r0 === 'calculs') { rendre(V.calculsAccueil()); brancherCalculs(); }
+    else if (r0 === 'modules') rendre(V.modules());
+    else if (r0 === 'module' && p[1] && p[2] === 'fiche' && p[3]) {
+      rendre(V.moduleFiche(p[1], p[3]));
+      brancherFicheGenerique(FICHES.REF_TRANSVERSAL, p[1], p[3], '#/module/' + p[1] + '/fiche/' + p[3]);
+    }
+    else if (r0 === 'module' && p[1]) rendre(V.module(p[1]));
+    else if (r0 === 'quiz-module' && p[1]) demarrerQuizModule(p[1], parseInt(param(h.query, 'n'), 10) || 0);
     else if (r0 === 'stats') rendre(V.stats(app.ref));
     else if (r0 === 'conseils') { rendre(V.conseils()); ancrer(h.ancre); }
     else if (r0 === 'reglages') { rendre(V.reglages(app.ref)); brancherReglages(); }
@@ -143,26 +150,45 @@
   }
 
   /* ---------------- fiche ---------------- */
-  function brancherFiche(ueId, ficheId) {
-    var u = FICHES.ue(app.ref, ueId);
-    var c = FICHES.contenu(app.ref, ueId);
-    if (u && c) {
+  function brancherFicheGenerique(ref, ueId, ficheId, href) {
+    var c = FICHES.contenu(ref, ueId);
+    if (c) {
       var f = null;
       for (var i = 0; i < c.fiches.length; i++) if (c.fiches[i].id === ficheId) f = c.fiches[i];
-      if (f) Store.setDernier({ ref: app.ref, ue: ueId, titre: f.titre, href: '#/ue/' + ueId + '/fiche/' + ficheId });
+      if (f && ref !== FICHES.REF_TRANSVERSAL) {
+        Store.setDernier({ ref: ref, ue: ueId, titre: f.titre, href: href });
+      }
     }
     var btn = document.getElementById('btn-lu');
     if (btn) {
-      btn.addEventListener('click', function () {
+      btn.onclick = function () {
         var lu = btn.getAttribute('data-lu') === '1';
-        Store.marquerFiche(app.ref, ueId, ficheId, !lu);
+        Store.marquerFiche(ref, ueId, ficheId, !lu);
         btn.setAttribute('data-lu', lu ? '0' : '1');
         btn.textContent = lu ? 'Marquer comme lue' : '✓ Fiche marquée comme lue';
         btn.classList.toggle('btn-sec', !lu);
         R.toast(lu ? 'Fiche remise en « à lire »' : 'Fiche marquée comme lue');
         majSidebar();
-      });
+      };
     }
+  }
+
+  function brancherFiche(ueId, ficheId) {
+    brancherFicheGenerique(app.ref, ueId, ficheId, '#/ue/' + ueId + '/fiche/' + ficheId);
+  }
+
+  function demarrerQuizModule(id, taille) {
+    var m = FICHES.module(id);
+    if (!m || !(m.qcm || []).length) { rendre(V.introuvable()); return; }
+    var TR = FICHES.REF_TRANSVERSAL;
+    var qs = Quiz.melanger(m.qcm);
+    if (taille > 0) qs = qs.slice(0, taille);
+    app.session = new Quiz.Session({
+      ref: TR, ueId: id, questions: qs,
+      titre: m.titre, retour: '#/module/' + id,
+      mode: Store.settings().quizMode
+    });
+    afficherQuiz();
   }
 
   /* ---------------- quiz ---------------- */
